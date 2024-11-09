@@ -1,0 +1,4 @@
+Creating the search feature proved to be the most difficult task from the rest. 
+Being able to search for a title/author/genre/or isbn without being forced to type in the full value was the hardest part.
+
+I decided to place the buttons at the top of the screen since it felt more natural to find.

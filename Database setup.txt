@@ -1,0 +1,12 @@
+CREATE TABLE `inventory` (
+  `EntryID` int NOT NULL AUTO_INCREMENT,
+  `Title` varchar(50) NOT NULL,
+  `Author` varchar(50) NOT NULL,
+  `Genre` varchar(20) NOT NULL,
+  `ISBN` varchar(20) NOT NULL,
+  `PublicationDate` datetime NOT NULL,
+  PRIMARY KEY (`EntryID`)
+) ENGINE=InnoDB AUTO_INCREMENT=123 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+to connect the db to the source code there are 4 different instances where the db is being used all thats needed is to change the hostname 
+to what you will use as well as all the other fields except the database field that should be kept as it is

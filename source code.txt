@@ -1,0 +1,295 @@
+from tkinter import *
+from tkinter import messagebox
+import ttkbootstrap as td
+import mysql.connector
+from ttkbootstrap.widgets import Treeview
+import pandas as pd
+
+mainScreen = td.Window()
+mainScreen.title("Book Keeper")
+
+width = mainScreen.winfo_screenwidth()
+height = mainScreen.winfo_screenheight()
+mainScreen.geometry("%dx%d" % (width,height))
+
+
+# Displays the database information on load
+def viewInfo():
+    # Connect to mySQL database
+    # Enter own database information to connect
+    mydb = mysql.connector.connect(
+        host="localhost",
+        user="root",
+        password="",
+        port='3306',
+        database="inventory"
+    )
+
+    # Use to check sql info
+    mycursor = mydb.cursor()
+
+    # Execute mySQL function to display all entries
+    mycursor.execute("SELECT * FROM inventory")
+    fetcher = mycursor.fetchall()
+
+    # Extracts the column names from sql table
+    column_name = [i[0] for i in mycursor.description]
+
+    # Clear existing data from TreeView
+    for item in tree.get_children():
+        tree.delete(item)
+
+    # Create columns in the TreeView
+    tree["columns"] = column_name
+    for col in column_name:
+        tree.heading(col, text=col)
+        tree.column(col, anchor=CENTER, width=100)
+
+    # Used to populate TreeView with data row from sql table
+    for row in fetcher:
+        tree.insert('', 'end', values=row)
+    mydb.close()
+
+def newBook():
+    def addBook():
+        #  Validate the ISBN is neither empty nor exceeds the isbn number count
+        if len(t_isbn.get().strip()) == 0 or len(t_isbn.get().strip()) > 13 or len(t_isbn.get().strip()) < 13:
+            messagebox.showerror("Error", "     Invalid ISBN    ")
+            return False
+        # Validate the text fields are not empty
+        if len(t_authorName.get(1.0, "end").strip()) == 0 or len(t_bookTitle.get(1.0, "end").strip()) == 0 or len(t_bookGenre.get(1.0, "end").strip()) == 0:
+            messagebox.showerror("Error", "     Invalid Entry   ")
+            return False
+        # Connect to mySQL database
+        mydb = mysql.connector.connect(
+            host="localhost",
+            user="root",
+            password="",
+            port='3306',
+            database="inventory"
+        )
+
+        # Use to check sql info
+        mycursor = mydb.cursor()
+
+        # Used to check for duplicate isbn
+        mycursor.execute("SELECT * FROM inventory WHERE ISBN = " + t_isbn.get())
+
+        mycursor.fetchall()
+
+        # Condition to add new entries if isbn does not have a duplicate
+        if mycursor.rowcount == 0:
+            myquery = "INSERT into inventory (Title,Author,Genre,PublicationDate,ISBN) values(%s, %s, %s, %s, %s)"
+            vals = \
+                (t_bookTitle.get(1.0, "end").strip(),
+                t_authorName.get(1.0, "end").strip(),
+                t_bookGenre.get(1.0, "end").strip(),
+                t_pubDate.entry.get().strip(),
+                t_isbn.get().strip())
+
+            mycursor.execute(myquery, vals)
+            mydb.commit()
+            messagebox.showinfo("Success", "Book added")
+
+            # Clears previous entries
+            t_authorName.delete(1.0, END)
+            t_bookTitle.delete(1.0, END)
+            t_bookGenre.delete(1.0, END)
+            t_isbn.delete(0, END)
+
+            # Returns cursor to authorName text box
+            t_authorName.focus()
+
+        else:
+            messagebox.showerror("Error", "     This book already exists      ")
+
+
+    entryWindow = Toplevel(mainScreen)
+    entryWindow.title("Entry Window")
+    entryWindow.resizable(False, False)
+
+    # Coordinates and size adjustments to place new window in center of the screen
+    w = 500
+    h = 300
+    x = (width/2) - (w/2)
+    y = (height/2)  - (h/2)
+    entryWindow.geometry('%dx%d+%d+%d' % (w, h, x, y))
+    entryWindow.transient(mainScreen)
+    entryWindow.grab_set()
+
+    lbl_authorName = td.Label(entryWindow, text="Author Name")
+    lbl_bookTitle = td.Label(entryWindow, text="Book Title")
+    lbl_bookGenre = td.Label(entryWindow, text="Book Genre")
+    lbl_isbn = td.Label(entryWindow, text="ISBN")
+    lbl_pubDate = td.Label(entryWindow, text="Publication Date")
+
+
+    t_authorName = Text(entryWindow, bg="gray", height=1, width=50)
+    t_bookTitle = Text(entryWindow, bg="gray", height=1, width=50)
+    t_bookGenre = Text(entryWindow, bg="gray", height=1, width=50)
+    t_isbn = Entry(entryWindow, bg="gray", validate="none", width=50)
+    t_pubDate = td.DateEntry(entryWindow, dateformat="%Y/%m/%d", firstweekday=0)
+
+    lbl_authorName.grid(row=0, column=0, padx=5, pady=5, sticky="ew")
+    lbl_bookTitle.grid(row=1, column=0, padx=5, pady=5, sticky="ew")
+    lbl_bookGenre.grid(row=2, column=0, padx=5, pady=5, sticky="ew")
+    lbl_isbn.grid(row=3, column=0, padx=5, pady=5, sticky="ew")
+    lbl_pubDate.grid(row=4, column=0, padx=5, pady=5, sticky="ew")
+
+    t_authorName.grid(row=0, column=1, padx=5, pady=5, sticky = "ew")
+    t_bookTitle.grid(row=1, column=1, padx=5, pady=5, sticky="ew")
+    t_bookGenre.grid(row=2, column=1, padx=5, pady=5, sticky="ew")
+    t_isbn.grid(row=3, column=1, padx=5, pady=5, sticky="ew")
+    t_pubDate.grid(row=4, column=1, padx=5, pady=5, sticky="ew")
+
+    # lambda used for the window to wait
+    # for a button press to display info
+    btn_add = td.Button(entryWindow, text="Add", command=lambda: addBook())
+    btn_add.grid(row=5, column=1, padx=5, pady=20, sticky="ew")
+
+def searchBook():
+    def exportFile():
+        mydb = mysql.connector.connect(
+            host="localhost",
+            user="root",
+            password="",
+            port='3306',
+            database="inventory"
+        )
+
+        # variable connected to db
+        mycursor = mydb.cursor()
+
+        # query to search for any info that matches the input box (uses sql wildcards)
+        myquery = "SELECT Title, Author, Genre, PublicationDate, ISBN FROM inventory"
+        myquery = myquery + " WHERE Author LIKE '%" + t_authorName.get(1.0, "end").strip() + "%'"
+        myquery = myquery + "AND Title LIKE '%" + t_bookTitle.get(1.0, "end").strip() + "%'"
+        myquery = myquery + " AND Genre LIKE '%" + t_bookGenre.get(1.0, "end").strip() + "%'"
+        myquery = myquery + " AND ISBN LIKE '%" + t_isbn.get(1.0, "end").strip() + "%'"
+        print(myquery)
+
+        mycursor.execute(myquery)
+        data = mycursor.fetchall()
+
+        # Exports data from search output to excel file
+        datafile = pd.DataFrame(data, columns=['Title', 'Author', 'Genre', 'PublicationDate', 'ISBN'])
+        datafile.to_excel("output.xlsx", index=False)
+        mydb.close()
+
+    def searchBox():
+        searchTree = td.Treeview(searchWindow, show="headings", height=40)
+        searchTree.grid(row = 3, column = 0, columnspan = 5, padx = 5, pady = 5,sticky = "ew")
+
+        #Connect to database
+        mydb = mysql.connector.connect(
+            host="localhost",
+            user="root",
+            password="",
+            port='3306',
+            database="inventory"
+        )
+
+        mycursor = mydb.cursor()
+
+        myquery = "SELECT * FROM inventory"
+        myquery = myquery + " WHERE Author LIKE '%" + t_authorName.get(1.0, "end").strip() + "%'"
+        myquery = myquery + "AND Title LIKE '%" + t_bookTitle.get(1.0, "end").strip() + "%'"
+        myquery = myquery + " AND Genre LIKE '%" + t_bookGenre.get(1.0, "end").strip() + "%'"
+        myquery = myquery + " AND ISBN LIKE '%" + t_isbn.get(1.0, "end").strip() + "%'"
+
+        # Execute mySQL function to display all entries
+        mycursor.execute(myquery)
+        fetcher = mycursor.fetchall()
+
+        # Extract column names from sql table
+        column_name = [i[0] for i in mycursor.description]
+
+        # Clear existing data from TreeView
+        for item in searchTree.get_children():
+            searchTree.delete(item)
+
+        # Create columns in the TreeView
+        searchTree["columns"] = column_name
+        for col in column_name:
+            searchTree.heading(col, text=col)
+            searchTree.column(col, anchor=CENTER, width=50)
+        # Used to populate TreeView with row data from sql table
+        for row in fetcher:
+            searchTree.insert('', 'end', values=row)
+
+        mydb.close()
+
+
+    # Opens a new window instance
+    searchWindow = Toplevel(mainScreen)
+    searchWindow.title("Search Window")
+    searchWindow.resizable(False, False)
+
+    w = 1050
+    h = 800
+    x = (width / 2) - (w / 2)
+    y = (height / 2) - (h / 2)
+
+    # Used to center the second screen in the center of the screen
+    searchWindow.geometry('%dx%d+%d+%d' % (w, h, x, y))
+    searchWindow.transient(mainScreen)
+    searchWindow.grab_set()
+
+    # Setting up labels and text boxes for the search box
+    lbl_bookTitle = td.Label(searchWindow, text="Title")
+    lbl_authorName = td.Label(searchWindow, text="Author")
+    lbl_bookGenre = td.Label(searchWindow, text="Genre")
+    lbl_isbn = td.Label(searchWindow, text="ISBN")
+
+    t_bookTitle = Text(searchWindow, bg="gray", height=1, width=35)
+    t_authorName = Text(searchWindow, bg="gray", height=1, width=35)
+    t_bookGenre = Text(searchWindow, bg="gray", height=1, width=35)
+    t_isbn = Text(searchWindow, bg="gray", height=1, width=35)
+
+    lbl_bookTitle.grid(row=0, column=0, padx=5, pady=5, sticky="ew")
+    lbl_authorName.grid(row=0, column=1, padx=5, pady=5, sticky="ew")
+    lbl_bookGenre.grid(row=0, column=2, padx=5, pady=5, sticky="ew")
+    lbl_isbn.grid(row=0, column=3, padx=5, pady=5, sticky="ew")
+
+    t_bookTitle.grid(row=1, column=0, padx=5, pady=5, sticky="ew")
+    t_authorName.grid(row=1, column=1, padx=5, pady=5, sticky="ew")
+    t_bookGenre.grid(row=1, column=2, padx=5, pady=5, sticky="ew")
+    t_isbn.grid(row=1, column=3, padx=5, pady=5, sticky="ew")
+
+    # Used lambda function to wait for a button press before executing the function
+    btn_search = td.Button(searchWindow, text="Search", command=lambda : searchBox())
+    btn_search.grid(row=2, column=0, columnspan = 2,padx=5, pady=5, sticky="ew")
+
+    # Used lambda function to wait for a button press before executing the function
+    btn_export = td.Button(searchWindow, text="Export", command=lambda : exportFile())
+    btn_export.grid(row=2, column=2, columnspan = 2,padx=5, pady=5, sticky="ew")
+
+
+# Main screen buttons
+canvas = td.Canvas(mainScreen, background="white")
+button_frame = td.Frame(mainScreen)
+button_frame.pack(side="top", fill="x", expand=False)
+canvas.pack(side="bottom", fill="both", expand=True)
+
+# Used lambda function to wait for a button press before executing the function
+btn_newEntry = td.Button(button_frame, text="New Entry", width=20, command=lambda : newBook())
+btn_search = td.Button(button_frame, text="Search", width=20, command=lambda : searchBook())
+btn_refresh = td.Button(button_frame,text="Refresh", width=20, command=lambda : viewInfo())
+
+# Bootstyle used to add existing styling to buttons
+btn_exit = td.Button(button_frame, text="Exit", bootstyle = "danger" ,width=20, command=lambda : mainScreen.destroy())
+
+#btn_displayInfo.grid(row=1, column=0, padx=5, pady=5, sticky = "ew")
+btn_newEntry.grid(row=1, column=1, padx=5, pady=5, sticky = "ew")
+btn_search.grid(row=1, column=2, padx=5, pady=5, sticky = "ew")
+btn_refresh.grid(row=1, column=3, padx=5, pady=5, sticky = "ew")
+btn_exit.grid(row=1, column=4, padx=5, pady=5, sticky = "ew")
+
+# Used to display tabular information in a grid-like structure
+tree = Treeview(mainScreen, show="headings", height=height)
+tree.pack(fill="both", expand=True)
+
+# Class function viewInfo() to display database info on start
+viewInfo()
+
+mainScreen.mainloop()
